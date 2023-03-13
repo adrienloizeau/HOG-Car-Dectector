@@ -10,7 +10,6 @@ kaggle datasets download -d brsdincer/vehicle-detection-image-set
 
 # Unzipping datasets
 pip install unzip
-mkdir dataset
-mkdir dataset/vehicle-detection-image-set
-unzip vehicle-detection-image-set.zip -d dataset
+mkdir classification-dataset
+unzip vehicle-detection-image-set.zip -d classification-dataset
 rm -rf vehicle-detection-image-set.zip

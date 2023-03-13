@@ -1,4 +1,6 @@
-- pipeline creation de modèle plus rapide avec les HOGS
+- finir la pipeline avec couleurs et bins
+- train les modèles sur différents HOG 
+
+- data exploration 
+- Image augmentation 
 - DICE metrique à mettre en place
-- multi size models
-- augmented hog features
