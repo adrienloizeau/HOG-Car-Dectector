@@ -4,6 +4,9 @@ train
 train.csv
 sample_submission.csv
 
+# ignore the kaggle json
+kaggle.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

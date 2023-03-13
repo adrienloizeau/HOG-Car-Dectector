@@ -1,0 +1,4 @@
+- pipeline creation de modèle plus rapide avec les HOGS
+- DICE metrique à mettre en place
+- multi size models
+- augmented hog features
