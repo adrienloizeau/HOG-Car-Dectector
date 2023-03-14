@@ -7,6 +7,8 @@ sample_submission.csv
 # ignore the kaggle json
 kaggle.json
 
+Assignment2.ipynb
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

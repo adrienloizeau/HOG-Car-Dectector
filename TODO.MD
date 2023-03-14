@@ -1,6 +1,12 @@
-- finir la pipeline avec couleurs et bins
+- faire un submit
+- Voir par size avec image EDA
+
+- taille recursive
+- voir avec deux modèles
 - train les modèles sur différents HOG 
 
-- data exploration 
+
 - Image augmentation 
-- DICE metrique à mettre en place
+- ne pas le faire au dessus de y et en dessous de y
+- recursif threshold
+- faire une heatmap des positions

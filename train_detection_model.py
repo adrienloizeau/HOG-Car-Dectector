@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 from skimage.feature import hog
 from torchvision.io import read_image
+import cv2
 from tqdm import tqdm
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
@@ -26,7 +27,7 @@ args = parser.parse_args()
 
 def extract_hog_features(img_path, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(2, 2)):
     # Load the image and convert to grayscale
-    img = read_image(img_path)
+    img = cv2.imread(img_path)
     
     # Apply random affine transformations to the image
     img = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
@@ -36,11 +37,11 @@ def extract_hog_features(img_path, orientations=9, pixels_per_cell=(8, 8), cells
     
     # Extract HOG features from the transformed images
     fd, hog_image1 = hog(img1, orientations=orientations, pixels_per_cell=pixels_per_cell,
-                        cells_per_block=cells_per_block, visualize=True, multichannel=False)
+                        cells_per_block=cells_per_block, visualize=True, channel_axis=False)
     fd, hog_image2 = hog(img2, orientations=orientations, pixels_per_cell=pixels_per_cell,
-                        cells_per_block=cells_per_block, visualize=True, multichannel=False)
+                        cells_per_block=cells_per_block, visualize=True, channel_axis=False)
     fd, hog_image3 = hog(img3, orientations=orientations, pixels_per_cell=pixels_per_cell,
-                        cells_per_block=cells_per_block, visualize=True, multichannel=False)
+                        cells_per_block=cells_per_block, visualize=True, channel_axis=False)
     
     # Normalize the HOG features
     scaler = StandardScaler()
@@ -89,18 +90,21 @@ def create_dataset():
   df_dataset_raw = pd.DataFrame(data= {"path":files,"labels":labels})
 
   # Create a new column in your DataFrame to store the HOG features
-  df_dataset_raw['hog_features'] = None
+  df_dataset_raw['hog_features_1'] = None
+  df_dataset_raw['hog_features_2'] = None
+  df_dataset_raw['hog_features_3'] = None
 
   # Loop over each row in the DataFrame and extract HOG features for the corresponding image path
   print("Extracting the HOG features of the dataset")
   for i, row in tqdm(df_dataset_raw.iterrows(), total=len(df_dataset_raw)):
-      img_path = row['path']
-      hog_features_1,hog_features_2, hog_features_3 = extract_hog_features(img_path)
+    print(i)
+    img_path = row['path']
+    hog_features_1,hog_features_2, hog_features_3 = extract_hog_features(img_path)
 
-      df_dataset_raw.at[i, 'hog_features_1'] = hog_features_1
-      df_dataset_raw.at[i, 'hog_features_2'] = hog_features_2
-      df_dataset_raw.at[i, 'hog_features_3'] = hog_features_3
-  
+    df_dataset_raw.at[i, 'hog_features_1'] = hog_features_1
+    df_dataset_raw.at[i, 'hog_features_2'] = hog_features_2
+    df_dataset_raw.at[i, 'hog_features_3'] = hog_features_3
+
   df_dataset = shuffle(df_dataset_raw, random_state= 42).reset_index(drop=True)
   return df_dataset
 
@@ -111,31 +115,32 @@ if __name__ == "__main__":
   else: 
       df_dataset = create_dataset()
 
-# For each of the HOG features
-for i in range(3):
-    print("#"*50)
-    X_train, X_test, y_train, y_test = train_test_split(df_dataset['hog_features_'+str(i)],df_dataset['labels'], test_size = 0.3, random_state=42)
-    X_train,  X_test = np.vstack(X_train),np.vstack(X_test)
+  print(df_dataset.head())
+  # For each of the HOG features
+  for i in range(1,4):
+      print("#"*50)
+      X_train, X_test, y_train, y_test = train_test_split(df_dataset['hog_features_'+str(i)],df_dataset['labels'], test_size = 0.3, random_state=42)
+      X_train,  X_test = np.vstack(X_train),np.vstack(X_test)
 
-    # Fitting the model on the training data
-    clf = RandomForestClassifier()
-    print("Training classifier" + str(i)+ "...")
-    clf.fit(X_train, y_train) 
-    print("Done")
+      # Fitting the model on the training data
+      clf = RandomForestClassifier()
+      print("Training classifier" + str(i)+ "...")
+      clf.fit(X_train, y_train) 
+      print("Done")
 
-    # Predicting the value of the test dataset
-    y_pred = clf.predict(X_test)
+      # Predicting the value of the test dataset
+      y_pred = clf.predict(X_test)
 
-    # Getting the metrics
-    acc= accuracy_score(y_test, y_pred)
+      # Getting the metrics
+      acc= accuracy_score(y_test, y_pred)
 
-    # Showing the results
-    print(f"Classifier's accuracy :{acc}")
+      # Showing the results
+      print(f"Classifier's accuracy :{acc}")
 
-    answer = input("Do you want to save the model ? (y/n)").lower()
-    if bool(answer and answer != 'n'):
-        name = input("name the model").lower()
-        pickle.dump(clf, open(name+".model", "wb"))
+      answer = input("Do you want to save the model ? (y/n)").lower()
+      if bool(answer and answer != 'n'):
+          name = input("name the model").lower()
+          pickle.dump(clf, open(name+".model", "wb"))
 
-    print(name , "saved")
-print("**FINISHED**")
+      print(name , "saved")
+  print("**FINISHED**")
