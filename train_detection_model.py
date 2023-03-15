@@ -36,12 +36,12 @@ def extract_hog_features(img_path, orientations=9, pixels_per_cell=(8, 8), cells
     img3 = img[:,:,2]
     
     # Extract HOG features from the transformed images
-    fd1, hog_image1 = hog(img1, orientations=orientations, pixels_per_cell=pixels_per_cell,
-                        cells_per_block=cells_per_block, visualize=True, channel_axis=False)
-    fd2, hog_image2 = hog(img2, orientations=orientations, pixels_per_cell=pixels_per_cell,
-                        cells_per_block=cells_per_block, visualize=True, channel_axis=False)
-    fd3, hog_image3 = hog(img3, orientations=orientations, pixels_per_cell=pixels_per_cell,
-                        cells_per_block=cells_per_block, visualize=True, channel_axis=False)
+    fd1, hog_image1 = hog(img1, orientations=9, pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2), visualize=True,channel_axis=-1)
+    fd2, hog_image2 = hog(img2, orientations=9, pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2), visualize=True,channel_axis=-1)
+    fd3, hog_image3 = hog(img3, orientations=9, pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2), visualize=True,channel_axis=-1)
     
     # Normalize the HOG features
     scaler = StandardScaler()
