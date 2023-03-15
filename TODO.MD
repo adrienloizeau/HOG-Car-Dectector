@@ -1,3 +1,5 @@
+- faire heatmap avec seuil max normalizé
+
 - faire un submit
 - Voir par size avec image EDA
 
@@ -10,3 +12,5 @@
 - ne pas le faire au dessus de y et en dessous de y
 - recursif threshold
 - faire une heatmap des positions
+
+- tailles différentes 
