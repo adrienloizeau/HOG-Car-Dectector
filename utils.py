@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import cv2
 import argparse
 import pandas as pd
@@ -6,50 +7,67 @@ import matplotlib.pyplot as plt
 from itertools import zip_longest
 from instruction_utils import run_length_encoding, bounding_boxes_to_mask
 
-def sliding_window_OLD(image, window_size=64, stride=20, padding=0):
+df_ground_truth = pd.read_csv('./train.csv')
+H, W = 720, 1280
+N = len(df_ground_truth)
+
+def sliding_window(image, window_size, step_size, y_start=0.2, y_stop=0.7):
     """
-    Slide a window across an image with a given stride and padding.
+    Generate sliding windows across the image.
 
     Args:
         image: The input image.
         window_size: The size of the window.
-        stride: The stride to slide the window.
-        padding: The amount of padding to apply to the image.
-    
+        step_size: The distance to slide the window.
+        y_start: The starting vertical coordinate.
+        y_stop: The stopping vertical coordinate.
+
     Returns:
         A generator that yields the sliding windows along with their starting and ending coordinates.
     """
-    # Add padding to the image
-    padded_image = cv2.copyMakeBorder(image, padding, padding, padding, padding, cv2.BORDER_CONSTANT)
-
-    # Loop over the sliding window
-    for y in range(max(padding, 200), min(padded_image.shape[0] - window_size + 1, 500), stride):
-        for x in range(0, padded_image.shape[1] - window_size + 1, stride):
-            yield padded_image[y:y+window_size, x:x+window_size], (x, y, window_size, window_size)
-
-def sliding_window(image, window_size, step_size, y_start=0.2, y_stop=0.7):
     for y in range(int(image.shape[0]*y_start), int(image.shape[0] * y_stop) - window_size[0], step_size[1]):
         for x in range(0, image.shape[1] - window_size[1], step_size[0]):
             yield (image[y: y + window_size[1], x: x + window_size[0]], (x, y,window_size[0],window_size[1]))
 
 def make_sliding_windows(image, window_sizes, step_sizes, starts_stops):
+    """ 
+    Generate sliding windows of multiple sizes.
+
+    Args:
+        image: The input image.
+        window_sizes: A list of window sizes.
+        step_sizes: A list of step sizes.
+        starts_stops: A list of starting and stopping vertical coordinates.
+
+    Returns:
+        A generator that yields the sliding windows along with their starting and ending coordinates.
+    """
     for i in range(len(window_sizes)):
         yield from sliding_window(image, window_sizes[i], step_sizes[i], y_start=starts_stops[i][0], y_stop=starts_stops[i][1])
 
-import cv2
-import numpy as np
-from itertools import zip_longest
-
-# Load image and boxes
-image = cv2.imread("test/001.jpg")
-
 def grouper(n, iterable, fillvalue=None):
+    """ 
+    Collect data into fixed-length chunks or blocks.
+
+    Args:
+        n: The number of items to group.
+        iterable: The iterable to group.
+        fillvalue: The value to use for padding when the iterable is exhausted.
+
+    Returns:
+        An iterable of tuples containing the grouped items.
+    """
     args = [iter(iterable)] * n
     return zip_longest(fillvalue=fillvalue, *args)
 
 def overlap(box1, box2, threshold=0.5):
     """
     Determine if two boxes overlap based on their intersection over union (IoU).
+
+    Args:
+        box1: The first box.
+        box2: The second box.
+        threshold: The threshold to use for the IoU
     """
     x1 = max(box1[0], box2[0])
     y1 = max(box1[1], box2[1])
@@ -63,26 +81,55 @@ def overlap(box1, box2, threshold=0.5):
     iou = intersection / float(area1 + area2 - intersection)
     return iou >= threshold
 
-# Create heatmap
-def create_map(boxes, img, threshold):
-    heatmap = np.zeros((img.shape[0], img.shape[1]), dtype=np.float32)
+def create_map(boxes, img, comparaison_threshold, poor_threshold):
+    """
+    Creates a heatmap of the detected objects in an image.
 
+    Args:
+        boxes (numpy.ndarray): An array of detected object bounding boxes.
+        img (numpy.ndarray): The input image.
+        comparaison_threshold (float): Threshold value to compare the heatmap values.
+        poor_threshold : Threshold value for poor detection: used when not a lot boxes are found
+                        aren't enough boxes
+    Returns:
+        A heatmap of the detected objects.
+    """
+
+    heatmap = np.zeros((img.shape[0], img.shape[1]), dtype=np.float32)
+    
+    # Add the probabilities to the heatmap in the corresponding locations
     for x,y,w, h, proba in grouper(5, boxes):
         heatmap[y:y+h,x:x+w] += proba*100
 
-    max = heatmap.max()
+    num_boxes= len(boxes)/5
     x,y  = heatmap.shape
-    for i in range(x):
-        for j in range(y):
-            heatmap[i,j]= heatmap[i,j]/max
-    
-    plt.imsave("heatmap.png", heatmap)
-    # Threshold heatmap
-    heatmap[heatmap < threshold] = 0.0
-    heatmap[heatmap >= threshold] = 1.0
-    return heatmap
+
+    # If there isn't a lot of boxes, only take the ones with value bigger than poor_threshold
+    if num_boxes< 6:
+        plt.imsave("heatmap.png", heatmap)
+        heatmap[heatmap < poor_threshold] = 0.0
+        heatmap[heatmap >= poor_threshold] = 1.0
+        return heatmap
+    else: 
+        # Normalize the heatmap values and compare them to the comparison threshold
+        max = heatmap.max()
+        for i in range(x):
+            for j in range(y):
+                heatmap[i,j]= heatmap[i,j]/max
+        
+        plt.imsave("monitoring/heatmap.png", heatmap)
+        heatmap[heatmap < comparaison_threshold] = 0.0
+        heatmap[heatmap >= comparaison_threshold] = 1.0
+        return heatmap
 
 def connect_components(heatmap):
+    """
+    Find connected components in the heatmap and merge overlapping bounding boxes.
+    Args:
+        heatmap (numpy.ndarray): A heatmap of the detected objects.
+    Returns:
+    A list of merged bounding boxes.
+    """
     # Find connected components
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(heatmap.astype(np.uint8))
 
@@ -111,9 +158,16 @@ def connect_components(heatmap):
     return merged_bboxes
 
 def create_submission_file(boxes_list, files_names):
+    """
+    Create a CSV submission file for the detected bounding boxes.
+    
+    Args:
+        boxes_list (list): A list of detected bounding boxes.
+        files_names (list): A list of file names for each bounding box.
+    """
     rows = []
     for i, file_name in enumerate(files_names):
-        rle = run_length_encoding(bounding_boxes_to_mask(boxes_list[i], H, W))
+        rle = run_length_encoding(bounding_boxes_to_mask(boxes_list[i], 720, 1280))
         rows.append([file_name, rle])
 
     df_prediction = pd.DataFrame(columns=['Id', 'Predicted'], data=rows).set_index('Id')

@@ -36,20 +36,26 @@ def extract_hog_features(img_path, orientations=9, pixels_per_cell=(8, 8), cells
     img3 = img[:,:,2]
     
     # Extract HOG features from the transformed images
-    fd, hog_image1 = hog(img1, orientations=orientations, pixels_per_cell=pixels_per_cell,
+    fd1, hog_image1 = hog(img1, orientations=orientations, pixels_per_cell=pixels_per_cell,
                         cells_per_block=cells_per_block, visualize=True, channel_axis=False)
-    fd, hog_image2 = hog(img2, orientations=orientations, pixels_per_cell=pixels_per_cell,
+    fd2, hog_image2 = hog(img2, orientations=orientations, pixels_per_cell=pixels_per_cell,
                         cells_per_block=cells_per_block, visualize=True, channel_axis=False)
-    fd, hog_image3 = hog(img3, orientations=orientations, pixels_per_cell=pixels_per_cell,
+    fd3, hog_image3 = hog(img3, orientations=orientations, pixels_per_cell=pixels_per_cell,
                         cells_per_block=cells_per_block, visualize=True, channel_axis=False)
     
     # Normalize the HOG features
     scaler = StandardScaler()
-    hog_image1 = scaler.fit_transform(hog_image1)
-    hog_image2 = scaler.fit_transform(hog_image2)
-    hog_image3 = scaler.fit_transform(hog_image3)
+    hog_image1 = scaler.fit_transform(fd1)
+    hog_image1 = np.ravel(hog_image1)
 
-    return hog_image1, hog_image2, hog_image3
+    hog_image2 = scaler.fit_transform(fd2)
+    hog_image2 = np.ravel(hog_image2)
+    
+    hog_image3 = scaler.fit_transform(fd3)
+    hog_image3 =np.ravel(hog_image3)
+
+    contenated_hogs= np.concatenate((hog_image1,hog_image2,hog_image3),axis= 0)
+    return contenated_hogs
 
 def apply_transformations(img):
     # Apply random affine transformations to the image
@@ -90,20 +96,16 @@ def create_dataset():
   df_dataset_raw = pd.DataFrame(data= {"path":files,"labels":labels})
 
   # Create a new column in your DataFrame to store the HOG features
-  df_dataset_raw['hog_features_1'] = None
-  df_dataset_raw['hog_features_2'] = None
-  df_dataset_raw['hog_features_3'] = None
+  df_dataset_raw['hog_features'] = None
 
   # Loop over each row in the DataFrame and extract HOG features for the corresponding image path
   print("Extracting the HOG features of the dataset")
   for i, row in tqdm(df_dataset_raw.iterrows(), total=len(df_dataset_raw)):
     print(i)
     img_path = row['path']
-    hog_features_1,hog_features_2, hog_features_3 = extract_hog_features(img_path)
+    contenated_hogs = extract_hog_features(img_path)
 
-    df_dataset_raw.at[i, 'hog_features_1'] = hog_features_1
-    df_dataset_raw.at[i, 'hog_features_2'] = hog_features_2
-    df_dataset_raw.at[i, 'hog_features_3'] = hog_features_3
+    df_dataset_raw.at[i, 'hog_features'] = contenated_hogs
 
   df_dataset = shuffle(df_dataset_raw, random_state= 42).reset_index(drop=True)
   return df_dataset
@@ -117,30 +119,29 @@ if __name__ == "__main__":
 
   print(df_dataset.head())
   # For each of the HOG features
-  for i in range(1,4):
-      print("#"*50)
-      X_train, X_test, y_train, y_test = train_test_split(df_dataset['hog_features_'+str(i)],df_dataset['labels'], test_size = 0.3, random_state=42)
-      X_train,  X_test = np.vstack(X_train),np.vstack(X_test)
+  print("#"*50)
+  X_train, X_test, y_train, y_test = train_test_split(df_dataset['hog_features'],df_dataset['labels'], test_size = 0.3, random_state=42)
+  X_train,  X_test = np.vstack(X_train),np.vstack(X_test)
 
-      # Fitting the model on the training data
-      clf = RandomForestClassifier()
-      print("Training classifier" + str(i)+ "...")
-      clf.fit(X_train, y_train) 
-      print("Done")
+  # Fitting the model on the training data
+  clf = RandomForestClassifier()
+  print("Training classifier" + "...")
+  clf.fit(X_train, y_train) 
+  print("Done")
 
-      # Predicting the value of the test dataset
-      y_pred = clf.predict(X_test)
+  # Predicting the value of the test dataset
+  y_pred = clf.predict(X_test)
 
-      # Getting the metrics
-      acc= accuracy_score(y_test, y_pred)
+  # Getting the metrics
+  acc= accuracy_score(y_test, y_pred)
 
-      # Showing the results
-      print(f"Classifier's accuracy :{acc}")
+  # Showing the results
+  print(f"Classifier's accuracy :{acc}")
 
-      answer = input("Do you want to save the model ? (y/n)").lower()
-      if bool(answer and answer != 'n'):
-          name = input("name the model").lower()
-          pickle.dump(clf, open(name+".model", "wb"))
+  answer = input("Do you want to save the model ? (y/n)").lower()
+  if bool(answer and answer != 'n'):
+      name = input("name the model").lower()
+      pickle.dump(clf, open(name+".model", "wb"))
 
-      print(name , "saved")
+  print(name , "saved")
   print("**FINISHED**")
